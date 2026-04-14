@@ -11,7 +11,6 @@ import (
 var indexes = []string{
 	"CREATE INDEX IF NOT EXISTS idx_alert_rule_row_id ON alert(rule_row_id)",
 	"CREATE INDEX IF NOT EXISTS idx_alert_repository_row_id ON alert(repository_row_id)",
-	"CREATE INDEX IF NOT EXISTS idx_alert_analysis_row_id ON alert(analysis_row_id)",
 }
 
 // Service encapsulates index management operations.
