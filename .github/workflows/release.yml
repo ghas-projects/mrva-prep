@@ -7,6 +7,9 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
+  artifact-metadata: write
 
 jobs:
   release:
@@ -15,54 +18,39 @@ jobs:
         include:
           - goos: linux
             goarch: amd64
-            runner: ubuntu-latest
-            cc: gcc
           - goos: linux
             goarch: arm64
-            runner: ubuntu-latest
-            cc: aarch64-linux-gnu-gcc
           - goos: darwin
             goarch: amd64
-            runner: macos-latest
-            cc: clang
           - goos: darwin
             goarch: arm64
-            runner: macos-latest
-            cc: clang
           - goos: windows
             goarch: amd64
-            runner: ubuntu-latest
-            cc: x86_64-w64-mingw32-gcc
-
-    runs-on: ${{ matrix.runner }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-
-      - name: Install cross-compilers
-        if: matrix.runner == 'ubuntu-latest' && (matrix.cc != 'gcc')
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-mingw-w64-x86-64
 
       - name: Build
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 1
-          CC: ${{ matrix.cc }}
         run: |
           ext=""
           if [ "$GOOS" = "windows" ]; then ext=".exe"; fi
-          output="mrva-prep-${GOOS}-${GOARCH}${ext}"
-          go build -trimpath -ldflags="-s -w" -o "${output}" .
+          go build -ldflags "-s -w -X main.version=${{ github.ref_name }}" \
+            -o mrva-prep-${{ matrix.goos }}-${{ matrix.goarch }}${ext}
+
+      - name: Attest Build
+        uses: actions/attest@v4
+        with:
+          subject-path: mrva-prep-${{ matrix.goos }}-${{ matrix.goarch }}*
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mrva-prep-${{ matrix.goos }}-${{ matrix.goarch }}
           path: mrva-prep-*
@@ -72,13 +60,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           merge-multiple: true
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create ${{ github.ref_name }} mrva-prep-* --generate-notes
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
         with:
-          generate_release_notes: true
-          files: mrva-prep-*
+          artifact-name: sbom-${{ github.ref_name }}.spdx.json
+          output-file: sbom-${{ github.ref_name }}.spdx.json
+
+      - name: Attest SBOM
+        uses: actions/attest@v7
+        with:
+          subject-path: mrva-prep-*
+          sbom-path: sbom-${{ github.ref_name }}.spdx.json
 
