@@ -68,6 +68,16 @@ internal/
   models/      Shared data types (DashboardStats, etc.)
 ```
 
+## Pipeline
+
+`mrva-prep` is one component of the end-to-end MRVA reporting pipeline. The full flow is:
+
+1. [**sarif-sql**](https://github.com/ghas-projects/sarif-sql) — Download SARIF artifacts and transform them into a normalized SQLite database.
+2. **mrva-prep** (this repo) — Add query-optimized indexes, extract dashboard metrics, and compress the database.
+3. [**mrva-reports**](https://github.com/advanced-security/mrva-reports) — Render the database as an interactive single-page dashboard in the browser.
+
+A GitHub Actions workflow chains all three steps into a single automated run. See the [MRVA Documentation](https://github.com/advanced-security/mrva-documentation) for the full architecture and user guide.
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
